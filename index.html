@@ -66,6 +66,7 @@ tr.me td{color:var(--gold);font-weight:900}
 .eggrow img.sel{border-color:var(--gold)}
 #speedfx{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:0;background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,0) 0 5deg,rgba(255,255,255,.55) 5deg 5.6deg);-webkit-mask-image:radial-gradient(ellipse at center,transparent 38%,#000 85%);mask-image:radial-gradient(ellipse at center,transparent 38%,#000 85%)}
 #vig{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 62%,rgba(40,10,70,.3) 100%)}
+#keysdbg{position:fixed;left:6px;bottom:20px;z-index:7;font:12px monospace;color:#ffe;background:rgba(0,0,0,.45);padding:2px 6px;border-radius:4px;display:none;pointer-events:none}
 #fps{position:fixed;left:6px;bottom:4px;z-index:7;font:11px monospace;color:#fff;opacity:.85;display:none;text-shadow:0 1px 2px #000;pointer-events:none}
 #gohint{position:absolute;left:0;right:0;top:64%;text-align:center;font-weight:800;font-size:calc(var(--u)*4.2);text-shadow:0 2px 4px #000;display:none}
 #cardnav{display:flex;align-items:center;gap:6px;width:min(98%,820px)}
@@ -80,7 +81,7 @@ tr.me td{color:var(--gold);font-weight:900}
 
 <div id="stage">
 <div id="game"></div>
-<div id="vig"></div><div id="fps"></div>
+<div id="vig"></div><div id="fps"></div><div id="keysdbg"></div>
 <div id="lobby" class="ov hidden">
   <div class="title"><h1>ONLINE <span>RACE</span></h1><p class="sub" id="lbSub"></p></div>
   <div class="bottom">
@@ -103,7 +104,7 @@ tr.me td{color:var(--gold);font-weight:900}
   <div class="bottom">
     <div id="cardnav"><button class="navb" id="cPrev">&lt;</button><div id="cards"></div><button class="navb" id="cNext">&gt;</button></div>
     <div><button class="cta" id="go">START RACE</button><button class="cta alt" id="fs">FULLSCREEN</button><button class="cta" id="bOnline" style="background:#2fa84f;box-shadow:0 5px 0 #17652f">ONLINE</button><button class="cta alt" id="bQ">GRAPHICS</button></div>
-    <div class="help">Left thumb: move &middot; Right side: drag to turn camera &middot; JUMP (tap twice = double jump) &middot; ROLL = speed boost<br>Keyboard: WASD/arrows move. Jump: Space, Z or J (twice = double jump). Roll boost: Shift, E, X or K. Drag the mouse to turn camera</div>
+    <div class="help">Left thumb: move &middot; Right side: drag to turn camera &middot; JUMP (tap twice = double jump) &middot; ROLL = speed boost<br>Keyboard: WASD/arrows move. Jump: Space, Z, J or Right Ctrl (twice = double jump). Roll boost: Shift, E, X or K. Drag the mouse to turn camera</div>
   </div>
 </div>
 <div id="result" class="ov hidden">
@@ -810,13 +811,15 @@ let camYaw=0,camPitch=.5,camPos=new T.Vector3(0,6,-10),dragT=0,focusY=0,lastSF=-
 let preT=-1,early=false,superMsgT=0,startMsg='';
 
 /* ---------- input ---------- */
-const JUMPK=['Space','KeyZ','KeyJ','KeyN','Numpad0'],ROLLK=['ShiftLeft','ShiftRight','KeyE','KeyK','KeyX','KeyL','Numpad1','Numpad2'];
+const JUMPK=['Space','KeyZ','KeyJ','KeyN','Numpad0','ControlRight','AltRight','Slash','Period'],ROLLK=['ShiftLeft','ShiftRight','KeyE','KeyK','KeyX','KeyL','Numpad1','Numpad2'];
+let lastKey='';
 const keys={};
 addEventListener('blur',()=>{for(const k in keys)keys[k]=0;inp.held=false});
 addEventListener('keydown',e=>{
   if(e.repeat){if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault();return}
   keys[e.code]=1;
-  if(e.code==='KeyF'){fpsOn=!fpsOn;$('fps').style.display=fpsOn?'block':'none'}
+  if(e.code==='KeyF'){fpsOn=!fpsOn;$('fps').style.display=fpsOn?'block':'none';$('keysdbg').style.display=fpsOn?'block':'none'}
+  lastKey=e.code;showKeys();
   if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault();
   if(JUMPK.includes(e.code))inp.jump=true;
   if(ROLLK.includes(e.code))inp.roll=true;
@@ -826,7 +829,8 @@ addEventListener('keydown',e=>{
     if(e.code==='Enter'&&!game)startRace();
   }
 });
-addEventListener('keyup',e=>{keys[e.code]=0});
+addEventListener('keyup',e=>{keys[e.code]=0;showKeys()});
+function showKeys(){if(!fpsOn)return;$('keysdbg').textContent='keys down: '+(Object.keys(keys).filter(k=>keys[k]).join(' ')||'-')+'   last pressed: '+lastKey}
 document.addEventListener('gesturestart',e=>e.preventDefault());
 document.addEventListener('contextmenu',e=>e.preventDefault());
 
@@ -955,7 +959,7 @@ function stepRacer(r,dt,c){
     V.x=approach(V.x,tx,acc*dt);V.z=approach(V.z,tz,acc*dt);
   }
   // jump
-  if(c.jump&&r.stun<=0)r.jumpBuf=.13;
+  if(c.jump&&r.stun<=0)r.jumpBuf=.18;
   r.airT+=dt;
   if(r.jumpBuf>0&&(r.onG||r.coy>0)&&r.stun<=0){
     V.y=12;r.jumpBuf=0;r.coy=0;r.onG=false;r.jumping=true;r.jc=1;r.airT=0;r.sq=-.16;
@@ -966,7 +970,7 @@ function stepRacer(r,dt,c){
     ringFx(P.x,P.y+.3,P.z,r.ch.col);emit(P.x,P.y+.4,P.z,r.ch.col,18,5,2);emit(P.x,P.y+.4,P.z,0xfff2a0,10,4,3);
     if(r===player)beep(640,.16,'square',.05,500);
   }
-  if(r.jumping&&V.y>0&&!c.held){V.y*=.5;r.jumping=false}
+  if(r.jumping&&V.y>0&&!c.held&&r.airT>.12){V.y*=.7;r.jumping=false}
   if(V.y<=0)r.jumping=false;
   V.y-=(V.y<0?38:30)*dt;V.y=Math.max(V.y,-42);
   const wasG=r.onG;
